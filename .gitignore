@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.pnp/
+.pnp.js
+
+# Production & Build outputs
+dist/
+dist-ssr/
+build/
+.vite/
+.cache/
+*.tsbuildinfo
+
+# Environment variables & Local configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+
+# Logs & Diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor & IDE configurations
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swo
+*.sublime-project
+*.sublime-workspace
+.cursor/
+.zed/
+.agents/
+.gemini/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Thumbs.db:encryptable
+desktop.ini
+
+# Temporary data exports & Python remnants
+irr_prefixes_*.csv
+irr_prefixes_*.json
+rpki_report.html
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
