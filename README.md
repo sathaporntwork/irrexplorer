@@ -119,6 +119,37 @@ npm run preview
 
 ---
 
+## ☁️ ขั้นตอนการ Deploy ขึ้น Cloudflare Pages
+
+สาเหตุของ Error `video/mp2t` หรือ `404` เกิดจากการที่ Cloudflare ไม่ได้รันขั้นตอน `npm run build` ทำให้เสิร์ฟไฟล์ดิบ `.ts` จาก Root แทนที่จะเสิร์ฟโฟลเดอร์ผลลัพธ์ `dist/`
+
+### วิธีที่ 1: Deploy ผ่าน Cloudflare Pages (เชื่อมต่อ Git Repository) - แนะนำ
+1. ในหน้า Cloudflare Dashboard ไปที่ **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**
+2. เลือก Repository ของคุณ แล้วตั้งค่า **Build settings** ดังนี้:
+   - **Framework preset**: `Vite` (หรือเลือก None)
+   - **Build command**: `npm run build`
+   - **Build output directory**: `dist`
+   - **Root directory**: `/` (เว้นว่างไว้)
+3. *(ตัวเลือกเสริม)* ในส่วน **Environment variables** กำหนด:
+   - Variable name: `NODE_VERSION`
+   - Value: `20` (หรือ `18`)
+4. กด **Save and Deploy** ระบบจะทำการคอมไพล์ TypeScript เป็น JavaScript ใน `dist/` และให้บริการเว็บได้อย่างถูกต้อง
+
+> **หากสร้าง Project บน Cloudflare Pages ไปแล้ว:**
+> ให้ไปที่ **Settings** ของโปรเจกต์บน Cloudflare Pages > **Builds & deployments** > แก้ไข **Build command** เป็น `npm run build` และ **Build output directory** เป็น `dist` จากนั้นกด Save แล้วไปที่แท็บ **Deployments** > กด **Retry deployment**
+
+---
+
+### วิธีที่ 2: Deploy แบบ Direct Upload (ลากโฟลเดอร์อัปโหลด)
+1. รันคำสั่ง Build ในเครื่องของคุณก่อน:
+   ```bash
+   npm run build
+   ```
+2. ใน Cloudflare Dashboard เลือก **Create application** > **Pages** > **Upload assets**
+3. **สำคัญมาก**: ให้ลากโฟลเดอร์ **`dist`** (ที่ได้จากการ build) ไปวาง **ห้ามลากโฟลเดอร์ Root ของโปรเจกต์**
+
+---
+
 ## 📄 ลิขสิทธิ์และการใช้งาน (License)
 
 ซอฟต์แวร์นี้เผยแพร่ภายใต้ลิขสิทธิ์ [MIT License](LICENSE) สามารถนำไปใช้งาน ปรับแต่ง หรือพัฒนาต่อยอดได้อย่างอิสระ ข้อมูล IRR และ RPKI มาจาก [NLNOG IRR Explorer](https://irrexplorer.nlnog.net/)
