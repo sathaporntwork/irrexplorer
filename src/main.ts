@@ -17,7 +17,7 @@ let currentStats: StatsSummary = {
 };
 
 let filterText = '';
-let activeFilter: FilterStatus = 'ALL';
+let activeFilters: Set<FilterStatus> = new Set(['ALL']);
 let sortField: SortField = 'prefix';
 let sortOrder: SortOrder = 'asc';
 let currentPage = 1;
@@ -148,12 +148,39 @@ function updateMetricsDisplay(stats: StatsSummary) {
 }
 
 /**
- * Filter & Sort dataset
+ * Human-readable label for a filter tag
+ */
+function getFilterLabel(filter: FilterStatus): string {
+  switch (filter) {
+    case 'V4': return 'IPv4';
+    case 'V6': return 'IPv6';
+    case 'RPKI_VALID': return 'RPKI Valid';
+    case 'RPKI_NOT_FOUND': return 'RPKI Not Found';
+    case 'RPKI_INVALID': return 'RPKI Invalid';
+    case 'APNIC_VALID': return 'APNIC Valid';
+    case 'APNIC_NOT_FOUND': return 'APNIC Not Found';
+    default: return 'All';
+  }
+}
+
+/**
+ * Filter & Sort dataset (Supports Multi-Selection)
  */
 function applyFilterAndSort() {
   const query = filterText.toLowerCase().trim();
 
-  // 1. Text Search & Filter Category
+  // Categorize active filters into dimensions
+  const ipFilters = new Set<FilterStatus>();
+  const rpkiFilters = new Set<FilterStatus>();
+  const apnicFilters = new Set<FilterStatus>();
+
+  for (const f of activeFilters) {
+    if (f === 'V4' || f === 'V6') ipFilters.add(f);
+    if (f === 'RPKI_VALID' || f === 'RPKI_NOT_FOUND' || f === 'RPKI_INVALID') rpkiFilters.add(f);
+    if (f === 'APNIC_VALID' || f === 'APNIC_NOT_FOUND') apnicFilters.add(f);
+  }
+
+  // 1. Text Search & Filter Categories
   filteredRecords = allRecords.filter(record => {
     // Search match in prefix or ASN
     const matchesQuery = !query ||
@@ -162,14 +189,32 @@ function applyFilterAndSort() {
 
     if (!matchesQuery) return false;
 
-    // Filter Chips
-    if (activeFilter === 'V4') return record.typeIp === 'v4';
-    if (activeFilter === 'V6') return record.typeIp === 'v6';
-    if (activeFilter === 'RPKI_VALID') return record.rpki === 'VALID';
-    if (activeFilter === 'RPKI_NOT_FOUND') return record.rpki === 'NOT_FOUND';
-    if (activeFilter === 'RPKI_INVALID') return record.rpki === 'INVALID';
-    if (activeFilter === 'APNIC_VALID') return record.apnic === 'VALID';
-    if (activeFilter === 'APNIC_NOT_FOUND') return record.apnic === 'NOT_FOUND';
+    // If 'ALL' is selected alone, allow all records through
+    if (activeFilters.has('ALL') && activeFilters.size === 1) {
+      return true;
+    }
+
+    // Dimension 1: IP Version (OR within dimension)
+    if (ipFilters.size > 0) {
+      const matchV4 = ipFilters.has('V4') && record.typeIp === 'v4';
+      const matchV6 = ipFilters.has('V6') && record.typeIp === 'v6';
+      if (!matchV4 && !matchV6) return false;
+    }
+
+    // Dimension 2: RPKI Status (OR within dimension)
+    if (rpkiFilters.size > 0) {
+      const matchValid = rpkiFilters.has('RPKI_VALID') && record.rpki === 'VALID';
+      const matchNotFound = rpkiFilters.has('RPKI_NOT_FOUND') && record.rpki === 'NOT_FOUND';
+      const matchInvalid = rpkiFilters.has('RPKI_INVALID') && record.rpki === 'INVALID';
+      if (!matchValid && !matchNotFound && !matchInvalid) return false;
+    }
+
+    // Dimension 3: APNIC Status (OR within dimension)
+    if (apnicFilters.size > 0) {
+      const matchApnicValid = apnicFilters.has('APNIC_VALID') && record.apnic === 'VALID';
+      const matchApnicNotFound = apnicFilters.has('APNIC_NOT_FOUND') && record.apnic === 'NOT_FOUND';
+      if (!matchApnicValid && !matchApnicNotFound) return false;
+    }
 
     return true;
   });
@@ -236,8 +281,13 @@ function renderTable() {
   const endIndex = Math.min(startIndex + PAGE_SIZE, total);
   const pageItems = filteredRecords.slice(startIndex, endIndex);
 
-  // Update footer info
-  showingInfo.textContent = `Showing ${startIndex + 1}–${endIndex} of ${total.toLocaleString()} prefixes (Filtered from ${allRecords.length.toLocaleString()})`;
+  // Update footer info with active filter summary
+  const activeLabels = Array.from(activeFilters).map(getFilterLabel);
+  const filterDesc = activeFilters.has('ALL') && activeFilters.size === 1
+    ? ''
+    : ` • Active: ${activeLabels.join(', ')}`;
+
+  showingInfo.textContent = `Showing ${startIndex + 1}–${endIndex} of ${total.toLocaleString()} prefixes (Filtered from ${allRecords.length.toLocaleString()})${filterDesc}`;
   pageIndicator.textContent = `Page ${currentPage} / ${totalPages}`;
   btnPrevPage.disabled = currentPage <= 1;
   btnNextPage.disabled = currentPage >= totalPages;
@@ -509,15 +559,65 @@ function setupEventListeners() {
     }, 150);
   });
 
-  // Filter Segmented Chips
-  filterChips.addEventListener('click', (e) => {
+  // Update active classes on filter chip elements
+  function updateFilterChipsUi() {
+    filterChips.querySelectorAll<HTMLElement>('.filter-chip').forEach(chip => {
+      const filter = chip.getAttribute('data-filter') as FilterStatus;
+      if (activeFilters.has(filter)) {
+        chip.classList.add('active');
+      } else {
+        chip.classList.remove('active');
+      }
+    });
+  }
+
+  // Filter Segmented Chips (Normal click: single select | Ctrl/Cmd/Shift click: multi-select)
+  filterChips.addEventListener('click', (e: MouseEvent) => {
     const target = (e.target as HTMLElement).closest('.filter-chip') as HTMLElement | null;
     if (!target) return;
 
-    filterChips.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-    target.classList.add('active');
+    const clickedFilter = (target.getAttribute('data-filter') as FilterStatus) || 'ALL';
+    const isMultiSelect = e.ctrlKey || e.metaKey || e.shiftKey;
 
-    activeFilter = (target.getAttribute('data-filter') as FilterStatus) || 'ALL';
+    if (isMultiSelect) {
+      if (clickedFilter === 'ALL') {
+        // Clicking ALL clears other filters
+        activeFilters.clear();
+        activeFilters.add('ALL');
+      } else {
+        // Remove ALL since specific filters are being toggled
+        activeFilters.delete('ALL');
+
+        // Toggle clicked filter
+        if (activeFilters.has(clickedFilter)) {
+          activeFilters.delete(clickedFilter);
+        } else {
+          activeFilters.add(clickedFilter);
+        }
+
+        // If no filter remains selected, revert to ALL
+        if (activeFilters.size === 0) {
+          activeFilters.add('ALL');
+        }
+      }
+    } else {
+      // Normal click: single select behavior
+      if (clickedFilter === 'ALL') {
+        activeFilters.clear();
+        activeFilters.add('ALL');
+      } else {
+        // If clicking the only active filter, toggle off back to ALL
+        if (activeFilters.size === 1 && activeFilters.has(clickedFilter)) {
+          activeFilters.clear();
+          activeFilters.add('ALL');
+        } else {
+          activeFilters.clear();
+          activeFilters.add(clickedFilter);
+        }
+      }
+    }
+
+    updateFilterChipsUi();
     applyFilterAndSort();
   });
 

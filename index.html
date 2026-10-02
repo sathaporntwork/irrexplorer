@@ -195,14 +195,20 @@
       </div>
 
       <!-- Filter Segmented Chips -->
-      <div class="filter-chips" id="filterChips">
-        <button type="button" class="filter-chip active" data-filter="ALL">All Prefixes</button>
-        <button type="button" class="filter-chip" data-filter="V4">IPv4 Only</button>
-        <button type="button" class="filter-chip" data-filter="V6">IPv6 Only</button>
-        <button type="button" class="filter-chip" data-filter="RPKI_VALID">RPKI Valid</button>
-        <button type="button" class="filter-chip" data-filter="RPKI_NOT_FOUND">RPKI Not Found</button>
-        <button type="button" class="filter-chip" data-filter="RPKI_INVALID">RPKI Invalid</button>
-        <button type="button" class="filter-chip" data-filter="APNIC_VALID">APNIC Valid</button>
+      <div class="filter-chips-row">
+        <div class="filter-chips" id="filterChips" aria-label="Prefix Filter Chips">
+          <button type="button" class="filter-chip active" data-filter="ALL" title="Show all prefixes">All Prefixes</button>
+          <button type="button" class="filter-chip" data-filter="V4" title="Filter IPv4 (Ctrl+Click to multi-select)">IPv4 Only</button>
+          <button type="button" class="filter-chip" data-filter="V6" title="Filter IPv6 (Ctrl+Click to multi-select)">IPv6 Only</button>
+          <button type="button" class="filter-chip" data-filter="RPKI_VALID" title="Filter RPKI Valid (Ctrl+Click to multi-select)">RPKI Valid</button>
+          <button type="button" class="filter-chip" data-filter="RPKI_NOT_FOUND" title="Filter RPKI Not Found (Ctrl+Click to multi-select)">RPKI Not Found</button>
+          <button type="button" class="filter-chip" data-filter="RPKI_INVALID" title="Filter RPKI Invalid (Ctrl+Click to multi-select)">RPKI Invalid</button>
+          <button type="button" class="filter-chip" data-filter="APNIC_VALID" title="Filter APNIC Valid (Ctrl+Click to multi-select)">APNIC Valid</button>
+          <button type="button" class="filter-chip" data-filter="APNIC_NOT_FOUND" title="Filter APNIC Not Found (Ctrl+Click to multi-select)">APNIC Not Found</button>
+        </div>
+        <div class="filter-multi-hint">
+          <span><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + Click to multi-select</span>
+        </div>
       </div>
     </section>
 
