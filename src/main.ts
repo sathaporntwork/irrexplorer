@@ -1,5 +1,5 @@
 import { fetchPrefixData, normalizeAsn } from './api';
-import type { PrefixRecord, StatsSummary, FilterStatus, SortField, SortOrder } from './types';
+import type { PrefixRecord, StatsSummary, FilterStatus, SortField, SortOrder, AdviceMessage } from './types';
 
 // App State
 let currentAsn = '';
@@ -144,6 +144,202 @@ function getStatusBadgeHtml(status: string): string {
   return `<span class="status-badge notfound">${status}</span>`;
 }
 
+interface ShortAdvice {
+  shortText: string;
+  category: 'danger' | 'warning' | 'info' | 'success';
+  fullText: string;
+  thaiTooltip: string;
+}
+
+/**
+ * Convert full verbose IRR Explorer advice message into a concise, easily understood badge label
+ */
+function getShortAdvice(msg: AdviceMessage): ShortAdvice {
+  const text = (msg.text || '').trim();
+  const rawCat = (msg.category || '').toLowerCase();
+  const category: 'danger' | 'warning' | 'info' | 'success' =
+    rawCat === 'danger' || rawCat === 'error' ? 'danger' :
+    rawCat === 'warning' ? 'warning' :
+    rawCat === 'success' ? 'success' : 'info';
+
+  // 1. RPKI origin mismatch
+  if (text.includes('RPKI origin does not match BGP origin')) {
+    return {
+      shortText: 'RPKI ≠ BGP',
+      category: 'danger',
+      fullText: text,
+      thaiTooltip: 'RPKI origin ไม่ตรงกับ BGP origin (ASN ใน ROA ไม่ตรงกับที่ประกาศจริง)'
+    };
+  }
+
+  // 2. Multiple IRR origins
+  if (text.includes('Multiple route objects exist with different origins')) {
+    return {
+      shortText: 'Multi IRR Origins',
+      category: 'warning',
+      fullText: text,
+      thaiTooltip: 'พบ Route Objects ใน IRR หลายแห่งที่ระบุ Origin ASN ต่างกัน'
+    };
+  }
+
+  // 3. RPKI-invalid route objects found
+  if (text.includes('RPKI-invalid route objects')) {
+    return {
+      shortText: 'RPKI Invalid IRR',
+      category: 'danger',
+      fullText: text,
+      thaiTooltip: 'พบ Route Object ใน IRR ที่ขัดแย้งกับสถานะ RPKI (Invalid)'
+    };
+  }
+
+  // 4. No route objects match DFZ origin
+  if (text.includes('No route objects match DFZ origin')) {
+    return {
+      shortText: 'No IRR for DFZ',
+      category: 'danger',
+      fullText: text,
+      thaiTooltip: 'ไม่มี Route Object ใน IRR ที่ตรงกับ Origin ASN บน DFZ'
+    };
+  }
+
+  // 5. No route objects for some DFZ origins
+  if (text.includes('No route objects for some DFZ origins')) {
+    return {
+      shortText: 'Partial IRR Match',
+      category: 'warning',
+      fullText: text,
+      thaiTooltip: 'ไม่มี Route Object รองรับ Origin ASN บางตัวของ DFZ'
+    };
+  }
+
+  // 6. Expected route object in ..., but BGP origin does not match
+  if (text.includes('Expected route object in') && text.includes('BGP origin does not match')) {
+    return {
+      shortText: 'RIR ≠ BGP',
+      category: 'danger',
+      fullText: text,
+      thaiTooltip: 'Route Object ใน RIR ประจำทวีปไม่ตรงกับ BGP Origin'
+    };
+  }
+
+  // 7. Expected route object in ..., but only found in other IRRs
+  if (text.includes('Expected route object in') && text.includes('only found in other IRRs')) {
+    return {
+      shortText: 'Non-Regional IRR',
+      category: 'warning',
+      fullText: text,
+      thaiTooltip: 'ไม่พบใน RIR ประจำทวีป พบเฉพาะใน IRR ภายนอก'
+    };
+  }
+
+  // 8. Expected route object in ... matches BGP origin, but non-matching objects exist in other IRRs
+  if (text.includes('matches BGP origin, but non-matching objects exist in other IRRs')) {
+    return {
+      shortText: 'IRR Conflict',
+      category: 'warning',
+      fullText: text,
+      thaiTooltip: 'มี Route Object ที่ขัดแย้งกันค้างอยู่ใน IRR อื่น'
+    };
+  }
+
+  // 9. Route objects exist, but prefix not seen in DFZ
+  if (text.includes('Route objects exist, but prefix not seen in DFZ')) {
+    return {
+      shortText: 'Not in DFZ',
+      category: 'info',
+      fullText: text,
+      thaiTooltip: 'มี Route Object ใน IRR แต่ Prefix นี้ไม่ได้ประกาศบน BGP DFZ'
+    };
+  }
+
+  // 10. RPKI ROA exists, but prefix not seen in DFZ
+  if (text.includes('RPKI ROA exists, but prefix not seen in DFZ')) {
+    return {
+      shortText: 'ROA Not in DFZ',
+      category: 'info',
+      fullText: text,
+      thaiTooltip: 'มี RPKI ROA แต่ Prefix นี้ไม่ได้ประกาศบน BGP DFZ'
+    };
+  }
+
+  // 11. No (covering) RPKI ROA found for route objects
+  if (text.includes('No (covering) RPKI ROA found')) {
+    return {
+      shortText: 'No ROA Found',
+      category: 'info',
+      fullText: text,
+      thaiTooltip: 'ไม่พบ RPKI ROA สำหรับ Route Object ใน IRR'
+    };
+  }
+
+  // 12. Overlaps with special use prefix
+  if (text.includes('special use prefix')) {
+    return {
+      shortText: 'Special Use IP',
+      category: 'danger',
+      fullText: text,
+      thaiTooltip: 'Prefix ทับซ้อนกับ IP พิเศษ (Special Use Space)'
+    };
+  }
+
+  // 13. Everything looks good
+  if (text.includes('Everything looks good')) {
+    return {
+      shortText: 'OK',
+      category: 'success',
+      fullText: text,
+      thaiTooltip: 'การกำหนดค่าสมบูรณ์ ไม่พบข้อขัดแย้ง'
+    };
+  }
+
+  // Fallback: concise 2-3 words
+  const words = text.split(' ');
+  const concise = words.length > 3 ? words.slice(0, 3).join(' ') + '…' : text;
+  return {
+    shortText: concise,
+    category,
+    fullText: text,
+    thaiTooltip: text
+  };
+}
+
+/**
+ * Render concise Advice Badges HTML for table cells
+ */
+function renderAdviceBadges(messages?: AdviceMessage[]): string {
+  if (!messages || messages.length === 0) {
+    return `<span class="advice-badge ok" title="Everything looks good • ไม่พบข้อขัดแย้ง"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg> OK</span>`;
+  }
+
+  const items = messages
+    .filter(m => m.text && !m.text.includes('Everything looks good'))
+    .map(getShortAdvice);
+
+  if (items.length === 0) {
+    return `<span class="advice-badge ok" title="Everything looks good • ไม่พบข้อขัดแย้ง"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg> OK</span>`;
+  }
+
+  // Sort severity: danger (0) -> warning (1) -> info (2) -> success (3)
+  const severityOrder: Record<string, number> = { danger: 0, warning: 1, info: 2, success: 3 };
+  items.sort((a, b) => (severityOrder[a.category] ?? 9) - (severityOrder[b.category] ?? 9));
+
+  return `<div class="advice-badges-cell">${items.map(item => {
+    let iconSvg = '';
+    if (item.category === 'danger') {
+      iconSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+    } else if (item.category === 'warning') {
+      iconSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+    } else if (item.category === 'info') {
+      iconSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+    } else {
+      iconSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    }
+
+    const titleAttr = `${item.fullText}\n(${item.thaiTooltip})`;
+    return `<span class="advice-badge ${item.category}" title="${titleAttr.replace(/"/g, '&quot;')}">${iconSvg}<span>${item.shortText}</span></span>`;
+  }).join('')}</div>`;
+}
+
 /**
  * Render summary statistics in metric cards
  */
@@ -247,66 +443,46 @@ function ipv6ToBigInt(ip: string): bigint | null {
 
 /**
  * Check if a single prefix record matches a filter query item
- * Supports:
- *  - Exact string match
- *  - Partial startsWith match (e.g. 103.20.10.0 or 103.20.10 matching 103.20.10.0/24)
- *  - IPv4 subnet containment (e.g. 103.20.0.0/16 matches 103.20.10.0/24)
- *  - IPv6 subnet containment (e.g. 2001:db8::/32 matches 2001:db8:1::/48)
+ * EXACT MATCH ONLY: Matches only the specified prefix itself.
+ * Does NOT perform longer match (more specifics) or supernet match (less specifics).
  */
 function matchesPrefixFilterItem(recordPrefix: string, filterItem: string): boolean {
-  const normRecord = recordPrefix.trim().toLowerCase();
-  const normFilter = filterItem.trim().toLowerCase();
+  const normRecord = recordPrefix.trim().toLowerCase().replace(/\s*\/\s*/, '/');
+  const normFilter = filterItem.trim().toLowerCase().replace(/\s*\/\s*/, '/');
 
-  // 1. Exact string match
+  // 1. Direct normalized string match
   if (normRecord === normFilter) return true;
 
-  // 2. Partial startsWith (if filterItem has no mask slash)
-  if (!normFilter.includes('/')) {
-    if (normRecord.startsWith(normFilter + '/') || normRecord.startsWith(normFilter)) {
-      return true;
-    }
-  }
-
-  // 3. IPv4 CIDR matching
-  if (!normRecord.includes(':') && !normFilter.includes(':')) {
+  // 2. IPv4 Exact CIDR match (Exact same network address AND exact same prefix length)
+  if (!normRecord.includes(':') && !normFilter.includes(':') && normRecord.includes('/') && normFilter.includes('/')) {
     const [fIp, fMaskStr] = normFilter.split('/');
     const [rIp, rMaskStr] = normRecord.split('/');
-    if (fIp && fMaskStr && rIp && rMaskStr) {
-      const fMask = parseInt(fMaskStr, 10);
-      const rMask = parseInt(rMaskStr, 10);
-      if (!isNaN(fMask) && !isNaN(rMask) && fMask >= 0 && fMask <= 32 && rMask >= 0 && rMask <= 32) {
-        if (rMask >= fMask) {
-          const fNum = ipv4ToNumber(fIp);
-          const rNum = ipv4ToNumber(rIp);
-          if (fNum !== null && rNum !== null) {
-            const mask = fMask === 0 ? 0 : (~0 << (32 - fMask)) >>> 0;
-            if ((fNum & mask) === (rNum & mask)) {
-              return true;
-            }
-          }
-        }
+    const fMask = parseInt(fMaskStr, 10);
+    const rMask = parseInt(rMaskStr, 10);
+    // Must be strictly equal prefix length (No longer match, No supernet match)
+    if (!isNaN(fMask) && !isNaN(rMask) && fMask === rMask && fMask >= 0 && fMask <= 32) {
+      const fNum = ipv4ToNumber(fIp);
+      const rNum = ipv4ToNumber(rIp);
+      if (fNum !== null && rNum !== null) {
+        const mask = fMask === 0 ? 0 : (~0 << (32 - fMask)) >>> 0;
+        return (fNum & mask) === (rNum & mask);
       }
     }
   }
 
-  // 4. IPv6 CIDR matching
-  if (normRecord.includes(':') && normFilter.includes(':')) {
+  // 3. IPv6 Exact CIDR match (Exact same network address BigInt AND exact same prefix length)
+  if (normRecord.includes(':') && normFilter.includes(':') && normRecord.includes('/') && normFilter.includes('/')) {
     const [fIp, fMaskStr] = normFilter.split('/');
     const [rIp, rMaskStr] = normRecord.split('/');
-    if (fIp && fMaskStr && rIp && rMaskStr) {
-      const fMask = parseInt(fMaskStr, 10);
-      const rMask = parseInt(rMaskStr, 10);
-      if (!isNaN(fMask) && !isNaN(rMask) && fMask >= 0 && fMask <= 128 && rMask >= 0 && rMask <= 128) {
-        if (rMask >= fMask) {
-          const fBig = ipv6ToBigInt(fIp);
-          const rBig = ipv6ToBigInt(rIp);
-          if (fBig !== null && rBig !== null) {
-            const shift = BigInt(128 - fMask);
-            if ((fBig >> shift) === (rBig >> shift)) {
-              return true;
-            }
-          }
-        }
+    const fMask = parseInt(fMaskStr, 10);
+    const rMask = parseInt(rMaskStr, 10);
+    // Must be strictly equal prefix length (No longer match, No supernet match)
+    if (!isNaN(fMask) && !isNaN(rMask) && fMask === rMask && fMask >= 0 && fMask <= 128) {
+      const fBig = ipv6ToBigInt(fIp);
+      const rBig = ipv6ToBigInt(rIp);
+      if (fBig !== null && rBig !== null) {
+        const shift = BigInt(128 - fMask);
+        return (fBig >> shift) === (rBig >> shift);
       }
     }
   }
@@ -514,6 +690,16 @@ function applyFilterAndSort() {
       cmp = a.rpki.localeCompare(b.rpki);
     } else if (sortField === 'asn') {
       cmp = a.asn.localeCompare(b.asn, undefined, { numeric: true });
+    } else if (sortField === 'advice') {
+      const getAdviceRank = (rec: PrefixRecord) => {
+        if (!rec.messages || rec.messages.length === 0) return 0;
+        const cats = rec.messages.map(m => (m.category || '').toLowerCase());
+        if (cats.includes('danger') || cats.includes('error')) return 3;
+        if (cats.includes('warning')) return 2;
+        if (cats.includes('info')) return 1;
+        return 0;
+      };
+      cmp = getAdviceRank(b) - getAdviceRank(a);
     }
 
     return sortOrder === 'asc' ? cmp : -cmp;
@@ -595,6 +781,7 @@ function renderTable() {
         <td>${getStatusBadgeHtml(row.apnic)}</td>
         <td>${getStatusBadgeHtml(row.rpki)}</td>
         <td><span class="asn-cell">${row.asn}</span></td>
+        <td>${renderAdviceBadges(row.messages)}</td>
         <td style="text-align: right;">
           <button type="button" class="btn-detail" data-idx="${globalIdx}">
             Inspect
@@ -615,6 +802,34 @@ function openDetailModal(record: PrefixRecord) {
   const rpslText = matched?.rpslText || (record.rawItem?.rpkiRoutes?.[0]?.rpslText) || 'No RPSL route object data available for this prefix.';
   const rir = record.rir || 'Unknown';
   const sources = record.allIrrSources?.length ? record.allIrrSources.join(', ') : 'None';
+
+  // Format Advice List for Modal
+  const rawAdvice = record.messages || [];
+  const adviceItems = rawAdvice.map(getShortAdvice);
+  const adviceHtml = adviceItems.length > 0 ? `
+    <div class="info-item" style="grid-column: span 2;">
+      <div class="info-label" style="margin-bottom: 0.45rem;">Routing Advice & Findings (ข้อสังเกตและคำแนะนำ)</div>
+      <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+        ${adviceItems.map(item => `
+          <div style="display: flex; align-items: flex-start; gap: 0.55rem; background: rgba(0,0,0,0.35); padding: 0.5rem 0.75rem; border-radius: 8px; border-left: 3px solid ${item.category === 'danger' ? '#ff493a' : item.category === 'warning' ? '#ff9f0a' : item.category === 'success' ? '#30d168' : '#64748b'};">
+            <span class="advice-badge ${item.category}" style="flex-shrink: 0; margin-top: 2px;">${item.shortText}</span>
+            <div style="font-size: 0.8rem; line-height: 1.4;">
+              <div style="color: var(--text-main); font-weight: 600;">${item.fullText}</div>
+              <div style="color: var(--text-muted); font-size: 0.74rem; margin-top: 2px;">${item.thaiTooltip}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : `
+    <div class="info-item" style="grid-column: span 2;">
+      <div class="info-label">Routing Advice & Findings</div>
+      <div style="font-size: 0.82rem; color: #30d168; display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>Everything looks good (การกำหนดค่า BGP, IRR และ RPKI ปกติสมบูรณ์)</span>
+      </div>
+    </div>
+  `;
 
   modalBody.innerHTML = `
     <div class="info-grid">
@@ -642,6 +857,7 @@ function openDetailModal(record: PrefixRecord) {
         <div class="info-label">IRR Database Sources</div>
         <div class="info-val">${sources}</div>
       </div>
+      ${adviceHtml}
     </div>
 
     <div>
@@ -680,16 +896,18 @@ function exportToCsv() {
     return;
   }
 
-  const headers = ['PREFIX', 'TYPEIP', 'APNIC', 'RPKI', 'ASN', 'RIR'];
+  const headers = ['PREFIX', 'TYPEIP', 'APNIC', 'RPKI', 'ASN', 'ADVICE', 'RIR'];
   const csvRows = [headers.join(',')];
 
   for (const r of filteredRecords) {
+    const adviceText = (r.messages || []).map(m => getShortAdvice(m).shortText).join('; ') || 'OK';
     csvRows.push([
       `"${r.prefix}"`,
       `"${r.typeIp}"`,
       `"${r.apnic}"`,
       `"${r.rpki}"`,
       `"${r.asn}"`,
+      `"${adviceText}"`,
       `"${r.rir || ''}"`
     ].join(','));
   }
@@ -719,6 +937,8 @@ function exportToJson() {
     APNIC: r.apnic,
     RPKI: r.rpki,
     ASN: r.asn,
+    ADVICE: (r.messages || []).map(m => getShortAdvice(m).shortText).join('; ') || 'OK',
+    ADVICE_DETAILS: (r.messages || []).map(m => m.text),
     RIR: r.rir || null,
   }));
 

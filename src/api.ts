@@ -75,6 +75,7 @@ export async function fetchPrefixData(rawAsn: string): Promise<{
     const originAsn = matchedRoute ? `AS${asn}` : '-';
 
     const allIrrSources = item.irrRoutes ? Object.keys(item.irrRoutes) : [];
+    const messages = item.messages || [];
 
     recordMap.set(prefix, {
       prefix,
@@ -85,6 +86,7 @@ export async function fetchPrefixData(rawAsn: string): Promise<{
       rir: item.rir,
       matchedRoute,
       allIrrSources,
+      messages,
       rawItem: item
     });
   }

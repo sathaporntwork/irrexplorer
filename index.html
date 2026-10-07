@@ -247,6 +247,9 @@
               <th data-sort="asn">
                 <span class="th-content">Origin ASN <span class="sort-icon" id="sort-asn">↕</span></span>
               </th>
+              <th data-sort="advice">
+                <span class="th-content">Advice <span class="sort-icon" id="sort-advice">↕</span></span>
+              </th>
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
@@ -326,14 +329,14 @@
             <strong>คำแนะนำการกรอง Prefix (Prefix Filter Guide)</strong>
           </div>
           <p class="hint-desc">
-            กรอกรายการ Prefix ที่ต้องการให้แสดงในตาราง โดยใส่ได้ทั้ง<strong>บรรทัดละ 1 prefix</strong> หรือ<strong>ใช้เครื่องหมายจุลภาค (comma <code>,</code>) คั่น</strong>
+            กรอกรายการ Prefix ที่ต้องการให้แสดงในตาราง (<strong>Exact Match ตรงกับ Prefix นั้นๆ เท่านั้น</strong> ไม่ทำ Longer Match หรือ Supernet Match) โดยใส่ได้ทั้ง<strong>บรรทัดละ 1 prefix</strong> หรือ<strong>ใช้เครื่องหมายจุลภาค (comma <code>,</code>) คั่น</strong>
           </p>
           <div class="hint-examples">
             <span class="example-label">ตัวอย่าง:</span>
             <code>103.20.10.0/24, 103.20.11.0/24</code> หรือ <code>2001:db8::/32</code>
           </div>
           <div class="hint-note">
-            💡 สามารถกรอกตั้งค่าตัวกรองนี้<strong>ก่อนเริ่มค้นหา ASN</strong> หรือ<strong>หลังจากได้ผลการสแกนแล้ว</strong>เพื่อกรองตารางได้ตลอดเวลา
+            💡 ระบบจะกรองเฉพาะ Prefix ที่ตรงกันทุกตัวอักษรและ Subnet Mask เท่านั้น (Exact Match)
           </div>
         </div>
 

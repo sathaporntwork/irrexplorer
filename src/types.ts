@@ -20,13 +20,18 @@ export interface RpkiRoute {
   [key: string]: unknown;
 }
 
+export interface AdviceMessage {
+  category: 'info' | 'warning' | 'danger' | 'error' | string;
+  text: string;
+}
+
 export interface ApiPrefixItem {
   prefix: string;
   rir?: string;
   rpkiRoutes?: RpkiRoute[];
   bgpOrigins?: unknown[];
   irrRoutes?: Record<string, IrrRoute[]>;
-  messages?: Array<{ category: string; text: string }>;
+  messages?: AdviceMessage[];
   [key: string]: unknown;
 }
 
@@ -45,6 +50,7 @@ export interface PrefixRecord {
   rir?: string;
   matchedRoute?: IrrRoute;
   allIrrSources?: string[];
+  messages?: AdviceMessage[];
   rawItem?: ApiPrefixItem;
 }
 
@@ -61,5 +67,5 @@ export interface StatsSummary {
 
 export type FilterStatus = 'ALL' | 'V4' | 'V6' | 'RPKI_VALID' | 'RPKI_NOT_FOUND' | 'RPKI_INVALID' | 'APNIC_VALID' | 'APNIC_NOT_FOUND';
 
-export type SortField = 'prefix' | 'typeIp' | 'apnic' | 'rpki' | 'asn';
+export type SortField = 'prefix' | 'typeIp' | 'apnic' | 'rpki' | 'asn' | 'advice';
 export type SortOrder = 'asc' | 'desc';

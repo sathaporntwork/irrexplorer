@@ -1829,3 +1829,66 @@ body {
   border-color: var(--border-specular);
 }
 
+/* --------------------------------------------------------------------------
+   Advice Badges Column (Concise routing advice & validation warnings)
+   -------------------------------------------------------------------------- */
+.advice-badges-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  align-items: flex-start;
+  min-width: 140px;
+}
+
+.advice-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  padding: 0.2rem 0.58rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: help;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.advice-badge:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.18);
+}
+
+.advice-badge svg {
+  flex-shrink: 0;
+}
+
+.advice-badge.danger {
+  background: rgba(255, 73, 58, 0.15);
+  border: 1px solid rgba(255, 73, 58, 0.45);
+  color: #ff6b5e;
+  box-shadow: 0 0 10px rgba(255, 73, 58, 0.25);
+}
+
+.advice-badge.warning {
+  background: rgba(255, 159, 10, 0.14);
+  border: 1px solid rgba(255, 159, 10, 0.45);
+  color: #ffb84d;
+  box-shadow: 0 0 10px rgba(255, 159, 10, 0.22);
+}
+
+.advice-badge.info {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  color: #cbd5e1;
+}
+
+.advice-badge.ok,
+.advice-badge.success {
+  background: rgba(48, 209, 104, 0.12);
+  border: 1px solid rgba(48, 209, 104, 0.38);
+  color: #30D168;
+}
+
+
