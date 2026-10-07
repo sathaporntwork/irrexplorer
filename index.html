@@ -38,6 +38,14 @@
       </div>
 
       <div class="header-actions">
+        <button type="button" class="btn-header-filter" id="btnOpenPrefixFilter" title="Filter specific prefix list">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          <span>Filter</span>
+          <span class="header-filter-badge" id="headerFilterBadge" style="display: none;">0</span>
+        </button>
         <span class="badge-live">
           <span class="pulse-dot"></span>
           Live API
@@ -206,6 +214,11 @@
           <button type="button" class="filter-chip" data-filter="APNIC_VALID" title="Filter APNIC Valid (Ctrl+Click to multi-select)">APNIC Valid</button>
           <button type="button" class="filter-chip" data-filter="APNIC_NOT_FOUND" title="Filter APNIC Not Found (Ctrl+Click to multi-select)">APNIC Not Found</button>
         </div>
+        <div class="custom-filter-chip-badge" id="customFilterChipBadge" style="display: none;">
+          <span class="custom-chip-icon">🎯</span>
+          <span class="custom-chip-text" id="customChipText">Prefix Filter: 0 rules</span>
+          <button type="button" class="btn-chip-remove" id="btnRemoveCustomChip" title="Clear custom prefix filter">✕</button>
+        </div>
         <div class="filter-multi-hint">
           <span><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + Click to multi-select</span>
         </div>
@@ -279,6 +292,92 @@
       </div>
       <div class="modal-body" id="modalBody">
         <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Custom Prefix Filter -->
+  <div class="modal-overlay" id="prefixFilterModal" aria-hidden="true" role="dialog" aria-labelledby="filterModalTitle">
+    <div class="modal-dialog filter-modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title" id="filterModalTitle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-primary)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          <span>Prefix Filter</span>
+        </div>
+        <button type="button" class="btn-close" id="btnCloseFilterModal" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body filter-modal-body">
+        <!-- Hint Box -->
+        <div class="filter-modal-hint-box">
+          <div class="hint-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <strong>คำแนะนำการกรอง Prefix (Prefix Filter Guide)</strong>
+          </div>
+          <p class="hint-desc">
+            กรอกรายการ Prefix ที่ต้องการให้แสดงในตาราง โดยใส่ได้ทั้ง<strong>บรรทัดละ 1 prefix</strong> หรือ<strong>ใช้เครื่องหมายจุลภาค (comma <code>,</code>) คั่น</strong>
+          </p>
+          <div class="hint-examples">
+            <span class="example-label">ตัวอย่าง:</span>
+            <code>103.20.10.0/24, 103.20.11.0/24</code> หรือ <code>2001:db8::/32</code>
+          </div>
+          <div class="hint-note">
+            💡 สามารถกรอกตั้งค่าตัวกรองนี้<strong>ก่อนเริ่มค้นหา ASN</strong> หรือ<strong>หลังจากได้ผลการสแกนแล้ว</strong>เพื่อกรองตารางได้ตลอดเวลา
+          </div>
+        </div>
+
+        <!-- Input Section -->
+        <div class="filter-input-container">
+          <div class="filter-input-header">
+            <label for="prefixTextarea" class="filter-input-label">Prefix List</label>
+            <span class="filter-items-count" id="filterItemsCount">0 prefixes entered</span>
+          </div>
+          <textarea
+            id="prefixTextarea"
+            class="filter-textarea"
+            rows="6"
+            placeholder="103.20.10.0/24&#10;103.20.11.0/24&#10;หรือคั่นด้วย comma เช่น 192.0.2.0/24, 198.51.100.0/22"
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- Status / Active info -->
+        <div class="filter-status-info" id="filterStatusInfo">
+          <span class="status-dot"></span>
+          <span id="filterStatusText">No prefix filter applied yet</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="filter-modal-actions">
+          <button type="button" class="btn-clear-filter" id="btnClearPrefixFilter" title="Reset and clear prefix filter">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Clear Filter</span>
+          </button>
+          <div class="filter-actions-right">
+            <button type="button" class="btn-filter-cancel" id="btnCancelFilterModal">Cancel</button>
+            <button type="button" class="btn-primary" id="btnApplyPrefixFilter">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Apply Filter</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

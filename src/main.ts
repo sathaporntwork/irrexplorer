@@ -23,6 +23,10 @@ let sortOrder: SortOrder = 'asc';
 let currentPage = 1;
 const PAGE_SIZE = 50;
 
+// Custom Prefix Filter State
+let customPrefixFilters: string[] = [];
+let customPrefixRawText: string = '';
+
 // DOM Elements
 const asnForm = document.getElementById('asnForm') as HTMLFormElement;
 const asnInput = document.getElementById('asnInput') as HTMLInputElement;
@@ -30,6 +34,9 @@ const btnQuery = document.getElementById('btnQuery') as HTMLButtonElement;
 const currentAsnHeader = document.getElementById('currentAsnHeader') as HTMLElement;
 const searchPrefixInput = document.getElementById('searchPrefixInput') as HTMLInputElement;
 const filterChips = document.getElementById('filterChips') as HTMLElement;
+const customFilterChipBadge = document.getElementById('customFilterChipBadge') as HTMLElement | null;
+const customChipText = document.getElementById('customChipText') as HTMLElement | null;
+const btnRemoveCustomChip = document.getElementById('btnRemoveCustomChip') as HTMLButtonElement | null;
 const tableBody = document.getElementById('tableBody') as HTMLElement;
 const stateContainer = document.getElementById('stateContainer') as HTMLElement;
 const tableFooter = document.getElementById('tableFooter') as HTMLElement;
@@ -46,6 +53,19 @@ const btnCloseModal = document.getElementById('btnCloseModal') as HTMLButtonElem
 const toastContainer = document.getElementById('toastContainer') as HTMLElement;
 const loadingOverlay = document.getElementById('loadingOverlay') as HTMLElement | null;
 const loadingDesc = document.getElementById('loadingDesc') as HTMLElement | null;
+
+// Header Prefix Filter & Modal Elements
+const btnOpenPrefixFilter = document.getElementById('btnOpenPrefixFilter') as HTMLButtonElement;
+const headerFilterBadge = document.getElementById('headerFilterBadge') as HTMLElement;
+const prefixFilterModal = document.getElementById('prefixFilterModal') as HTMLElement;
+const btnCloseFilterModal = document.getElementById('btnCloseFilterModal') as HTMLButtonElement;
+const btnCancelFilterModal = document.getElementById('btnCancelFilterModal') as HTMLButtonElement;
+const btnClearPrefixFilter = document.getElementById('btnClearPrefixFilter') as HTMLButtonElement;
+const btnApplyPrefixFilter = document.getElementById('btnApplyPrefixFilter') as HTMLButtonElement;
+const prefixTextarea = document.getElementById('prefixTextarea') as HTMLTextAreaElement;
+const filterItemsCount = document.getElementById('filterItemsCount') as HTMLElement;
+const filterStatusInfo = document.getElementById('filterStatusInfo') as HTMLElement;
+const filterStatusText = document.getElementById('filterStatusText') as HTMLElement;
 
 // Metric Elements
 const valTotalPrefixes = document.getElementById('valTotalPrefixes') as HTMLElement;
@@ -164,7 +184,256 @@ function getFilterLabel(filter: FilterStatus): string {
 }
 
 /**
- * Filter & Sort dataset (Supports Multi-Selection)
+ * Parse raw user input into an array of trimmed prefixes
+ * Supports newline (\n, \r), comma (,), semicolon (;), and spaces
+ */
+function parsePrefixInput(text: string): string[] {
+  return text
+    .split(/[\r\n,;]+/)
+    .map(p => p.trim().replace(/['"`]/g, ''))
+    .filter(p => p.length > 0);
+}
+
+/**
+ * Convert standard IPv4 string into 32-bit unsigned integer
+ */
+function ipv4ToNumber(ip: string): number | null {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return null;
+  let num = 0;
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) return null;
+    const n = parseInt(part, 10);
+    if (n < 0 || n > 255) return null;
+    num = (num << 8) | n;
+  }
+  return num >>> 0;
+}
+
+/**
+ * Convert IPv6 string into 128-bit BigInt
+ */
+function ipv6ToBigInt(ip: string): bigint | null {
+  try {
+    let clean = ip.trim().toLowerCase();
+    if (clean.includes(':::')) return null;
+
+    if (clean.includes('::')) {
+      const parts = clean.split('::');
+      if (parts.length > 2) return null;
+      const left = parts[0] ? parts[0].split(':') : [];
+      const right = parts[1] ? parts[1].split(':') : [];
+      const missing = 8 - (left.length + right.length);
+      if (missing < 0) return null;
+      const middle = new Array(missing).fill('0');
+      const allParts = [...left, ...middle, ...right];
+      clean = allParts.join(':');
+    }
+
+    const segments = clean.split(':');
+    if (segments.length !== 8) return null;
+
+    let result = 0n;
+    for (const seg of segments) {
+      if (!seg || seg.length > 4 || !/^[0-9a-f]+$/i.test(seg)) return null;
+      const val = BigInt(parseInt(seg, 16));
+      result = (result << 16n) | val;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if a single prefix record matches a filter query item
+ * Supports:
+ *  - Exact string match
+ *  - Partial startsWith match (e.g. 103.20.10.0 or 103.20.10 matching 103.20.10.0/24)
+ *  - IPv4 subnet containment (e.g. 103.20.0.0/16 matches 103.20.10.0/24)
+ *  - IPv6 subnet containment (e.g. 2001:db8::/32 matches 2001:db8:1::/48)
+ */
+function matchesPrefixFilterItem(recordPrefix: string, filterItem: string): boolean {
+  const normRecord = recordPrefix.trim().toLowerCase();
+  const normFilter = filterItem.trim().toLowerCase();
+
+  // 1. Exact string match
+  if (normRecord === normFilter) return true;
+
+  // 2. Partial startsWith (if filterItem has no mask slash)
+  if (!normFilter.includes('/')) {
+    if (normRecord.startsWith(normFilter + '/') || normRecord.startsWith(normFilter)) {
+      return true;
+    }
+  }
+
+  // 3. IPv4 CIDR matching
+  if (!normRecord.includes(':') && !normFilter.includes(':')) {
+    const [fIp, fMaskStr] = normFilter.split('/');
+    const [rIp, rMaskStr] = normRecord.split('/');
+    if (fIp && fMaskStr && rIp && rMaskStr) {
+      const fMask = parseInt(fMaskStr, 10);
+      const rMask = parseInt(rMaskStr, 10);
+      if (!isNaN(fMask) && !isNaN(rMask) && fMask >= 0 && fMask <= 32 && rMask >= 0 && rMask <= 32) {
+        if (rMask >= fMask) {
+          const fNum = ipv4ToNumber(fIp);
+          const rNum = ipv4ToNumber(rIp);
+          if (fNum !== null && rNum !== null) {
+            const mask = fMask === 0 ? 0 : (~0 << (32 - fMask)) >>> 0;
+            if ((fNum & mask) === (rNum & mask)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 4. IPv6 CIDR matching
+  if (normRecord.includes(':') && normFilter.includes(':')) {
+    const [fIp, fMaskStr] = normFilter.split('/');
+    const [rIp, rMaskStr] = normRecord.split('/');
+    if (fIp && fMaskStr && rIp && rMaskStr) {
+      const fMask = parseInt(fMaskStr, 10);
+      const rMask = parseInt(rMaskStr, 10);
+      if (!isNaN(fMask) && !isNaN(rMask) && fMask >= 0 && fMask <= 128 && rMask >= 0 && rMask <= 128) {
+        if (rMask >= fMask) {
+          const fBig = ipv6ToBigInt(fIp);
+          const rBig = ipv6ToBigInt(rIp);
+          if (fBig !== null && rBig !== null) {
+            const shift = BigInt(128 - fMask);
+            if ((fBig >> shift) === (rBig >> shift)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if a record matches any item in customPrefixFilters
+ */
+function matchesCustomPrefixFilter(recordPrefix: string, filterList: string[]): boolean {
+  if (filterList.length === 0) return true;
+  return filterList.some(item => matchesPrefixFilterItem(recordPrefix, item));
+}
+
+/**
+ * Update UI state indicators for Custom Prefix Filter
+ */
+function updateCustomPrefixUi() {
+  const count = customPrefixFilters.length;
+  if (count > 0) {
+    btnOpenPrefixFilter.classList.add('active');
+    headerFilterBadge.textContent = String(count);
+    headerFilterBadge.style.display = 'inline-flex';
+
+    if (customFilterChipBadge && customChipText) {
+      customChipText.textContent = `Prefix Filter: ${count} rule${count > 1 ? 's' : ''}`;
+      customFilterChipBadge.style.display = 'inline-flex';
+    }
+  } else {
+    btnOpenPrefixFilter.classList.remove('active');
+    headerFilterBadge.style.display = 'none';
+
+    if (customFilterChipBadge) {
+      customFilterChipBadge.style.display = 'none';
+    }
+  }
+}
+
+/**
+ * Update prefix count label in modal textarea header
+ */
+function updateModalCountDisplay() {
+  const currentList = parsePrefixInput(prefixTextarea.value);
+  filterItemsCount.textContent = `${currentList.length} prefix${currentList.length === 1 ? '' : 'es'} entered`;
+}
+
+/**
+ * Open Prefix Filter Modal
+ */
+function openPrefixFilterModal() {
+  prefixTextarea.value = customPrefixRawText;
+  updateModalCountDisplay();
+
+  const count = customPrefixFilters.length;
+  if (count > 0) {
+    filterStatusInfo.classList.add('has-active');
+    filterStatusText.textContent = `Currently active: ${count} prefix rule${count > 1 ? 's' : ''}`;
+  } else {
+    filterStatusInfo.classList.remove('has-active');
+    filterStatusText.textContent = 'No prefix filter applied yet';
+  }
+
+  prefixFilterModal.classList.add('open');
+  prefixFilterModal.setAttribute('aria-hidden', 'false');
+  setTimeout(() => prefixTextarea.focus(), 80);
+}
+
+/**
+ * Close Prefix Filter Modal
+ */
+function closePrefixFilterModal() {
+  prefixFilterModal.classList.remove('open');
+  prefixFilterModal.setAttribute('aria-hidden', 'true');
+}
+
+/**
+ * Apply Custom Prefix Filter from modal
+ */
+function applyCustomPrefixFilter() {
+  const rawText = prefixTextarea.value;
+  const parsed = parsePrefixInput(rawText);
+
+  // Deduplicate case-insensitively
+  const seen = new Set<string>();
+  const uniqueList: string[] = [];
+  for (const p of parsed) {
+    const lower = p.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      uniqueList.push(p);
+    }
+  }
+
+  customPrefixRawText = rawText;
+  customPrefixFilters = uniqueList;
+  updateCustomPrefixUi();
+  closePrefixFilterModal();
+
+  applyFilterAndSort();
+
+  if (customPrefixFilters.length > 0) {
+    if (allRecords.length > 0) {
+      showToast(`Applied prefix filter: ${filteredRecords.length.toLocaleString()} of ${allRecords.length.toLocaleString()} prefixes matched`);
+    } else {
+      showToast(`Prefix filter set (${customPrefixFilters.length} prefixes). Ready for ASN scan.`);
+    }
+  } else {
+    showToast('Prefix filter is empty (showing all prefixes)');
+  }
+}
+
+/**
+ * Clear Custom Prefix Filter
+ */
+function clearCustomPrefixFilter() {
+  customPrefixFilters = [];
+  customPrefixRawText = '';
+  prefixTextarea.value = '';
+  updateModalCountDisplay();
+  updateCustomPrefixUi();
+  applyFilterAndSort();
+  showToast('Prefix filter cleared');
+}
+
+/**
+ * Filter & Sort dataset (Supports Multi-Selection and Custom Prefix Filter)
  */
 function applyFilterAndSort() {
   const query = filterText.toLowerCase().trim();
@@ -180,8 +449,15 @@ function applyFilterAndSort() {
     if (f === 'APNIC_VALID' || f === 'APNIC_NOT_FOUND') apnicFilters.add(f);
   }
 
-  // 1. Text Search & Filter Categories
+  // 1. Filter Records
   filteredRecords = allRecords.filter(record => {
+    // 0. Custom Prefix List Filter (multi-prefix matching)
+    if (customPrefixFilters.length > 0) {
+      if (!matchesCustomPrefixFilter(record.prefix, customPrefixFilters)) {
+        return false;
+      }
+    }
+
     // Search match in prefix or ASN
     const matchesQuery = !query ||
       record.prefix.toLowerCase().includes(query) ||
@@ -264,7 +540,7 @@ function renderTable() {
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
         <h3 class="state-title">No matching prefix records</h3>
-        <p class="state-desc">Try clearing or adjusting your search query or filter tags.</p>
+        <p class="state-desc">Try clearing or adjusting your search query or prefix filter list.</p>
       </div>
     `;
     tableFooter.style.display = 'none';
@@ -283,9 +559,14 @@ function renderTable() {
 
   // Update footer info with active filter summary
   const activeLabels = Array.from(activeFilters).map(getFilterLabel);
-  const filterDesc = activeFilters.has('ALL') && activeFilters.size === 1
-    ? ''
-    : ` • Active: ${activeLabels.join(', ')}`;
+  const filterDescParts: string[] = [];
+  if (!(activeFilters.has('ALL') && activeFilters.size === 1)) {
+    filterDescParts.push(`Status: ${activeLabels.join(', ')}`);
+  }
+  if (customPrefixFilters.length > 0) {
+    filterDescParts.push(`Prefix Filter: ${customPrefixFilters.length} rule${customPrefixFilters.length > 1 ? 's' : ''}`);
+  }
+  const filterDesc = filterDescParts.length > 0 ? ` • ${filterDescParts.join(' • ')}` : '';
 
   showingInfo.textContent = `Showing ${startIndex + 1}–${endIndex} of ${total.toLocaleString()} prefixes (Filtered from ${allRecords.length.toLocaleString()})${filterDesc}`;
   pageIndicator.textContent = `Page ${currentPage} / ${totalPages}`;
@@ -504,7 +785,11 @@ async function loadAsn(asn: string) {
 
     updateMetricsDisplay(currentStats);
     applyFilterAndSort();
-    showToast(`Loaded ${allRecords.length.toLocaleString()} prefixes for AS${clean}`);
+    if (customPrefixFilters.length > 0) {
+      showToast(`Loaded ${allRecords.length.toLocaleString()} prefixes for AS${clean} (${filteredRecords.length.toLocaleString()} matched prefix filter)`);
+    } else {
+      showToast(`Loaded ${allRecords.length.toLocaleString()} prefixes for AS${clean}`);
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error occurred';
     stateContainer.style.display = 'block';
@@ -693,14 +978,48 @@ function setupEventListeners() {
   btnExportCsv.addEventListener('click', exportToCsv);
   btnExportJson.addEventListener('click', exportToJson);
 
-  // Modal Close
+  // Detail Modal Close
   btnCloseModal.addEventListener('click', closeDetailModal);
   detailModal.addEventListener('click', (e) => {
     if (e.target === detailModal) closeDetailModal();
   });
+
+  // Prefix Filter Modal Events
+  btnOpenPrefixFilter.addEventListener('click', openPrefixFilterModal);
+  btnCloseFilterModal.addEventListener('click', closePrefixFilterModal);
+  btnCancelFilterModal.addEventListener('click', closePrefixFilterModal);
+  btnClearPrefixFilter.addEventListener('click', clearCustomPrefixFilter);
+  btnApplyPrefixFilter.addEventListener('click', applyCustomPrefixFilter);
+
+  // Live count update while typing in textarea
+  prefixTextarea.addEventListener('input', updateModalCountDisplay);
+
+  // Clear or open modal from table filter chip
+  if (btnRemoveCustomChip) {
+    btnRemoveCustomChip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearCustomPrefixFilter();
+    });
+  }
+  if (customFilterChipBadge) {
+    customFilterChipBadge.addEventListener('click', () => {
+      openPrefixFilterModal();
+    });
+  }
+
+  // Close prefix filter modal on background click
+  prefixFilterModal.addEventListener('click', (e) => {
+    if (e.target === prefixFilterModal) closePrefixFilterModal();
+  });
+
+  // Global Escape Key Listener for Modals
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && detailModal.classList.contains('open')) {
-      closeDetailModal();
+    if (e.key === 'Escape') {
+      if (prefixFilterModal.classList.contains('open')) {
+        closePrefixFilterModal();
+      } else if (detailModal.classList.contains('open')) {
+        closeDetailModal();
+      }
     }
   });
 }

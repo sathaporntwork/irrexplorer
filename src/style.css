@@ -1480,3 +1480,352 @@ body {
 .footer-link:hover {
   text-decoration: underline;
 }
+
+/* --------------------------------------------------------------------------
+   Header Prefix Filter Button & Badge
+   -------------------------------------------------------------------------- */
+.btn-header-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.32rem 0.82rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--text-silver);
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-specular-soft);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.btn-header-filter svg {
+  color: var(--waze-blue);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.btn-header-filter:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-specular);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(10, 99, 255, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.btn-header-filter:hover svg {
+  transform: scale(1.1);
+  color: #60a5fa;
+}
+
+.btn-header-filter.active {
+  background: rgba(10, 99, 255, 0.16);
+  border-color: rgba(10, 99, 255, 0.55);
+  color: #93c5fd;
+  box-shadow: 0 0 14px rgba(10, 99, 255, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+}
+
+.btn-header-filter.active svg {
+  color: #60a5fa;
+}
+
+.header-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--waze-blue);
+  color: #ffffff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  box-shadow: 0 2px 6px rgba(10, 99, 255, 0.5);
+  letter-spacing: -0.02em;
+}
+
+/* --------------------------------------------------------------------------
+   Custom Filter Chip in Table Filter Controls
+   -------------------------------------------------------------------------- */
+.custom-filter-chip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.24rem 0.65rem 0.24rem 0.6rem;
+  background: rgba(10, 99, 255, 0.14);
+  border: 1px solid rgba(10, 99, 255, 0.45);
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #93c5fd;
+  box-shadow: 0 0 10px rgba(10, 99, 255, 0.2);
+  animation: fadeInPill 0.2s ease;
+}
+
+@keyframes fadeInPill {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.custom-chip-icon {
+  font-size: 0.75rem;
+}
+
+.custom-chip-text {
+  font-family: var(--font-mono);
+}
+
+.btn-chip-remove {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #cbd5e1;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  line-height: 1;
+  transition: all 0.15s ease;
+  margin-left: 0.15rem;
+}
+
+.btn-chip-remove:hover {
+  background: rgba(255, 73, 58, 0.35);
+  color: #ff8075;
+}
+
+/* --------------------------------------------------------------------------
+   Prefix Filter Modal Dialog & Form
+   -------------------------------------------------------------------------- */
+.filter-modal-dialog {
+  max-width: 580px;
+}
+
+.filter-modal-body {
+  padding: 1.25rem 1.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+}
+
+.filter-modal-hint-box {
+  background: linear-gradient(135deg, rgba(10, 99, 255, 0.1) 0%, rgba(10, 20, 45, 0.4) 100%);
+  border: 1px solid rgba(10, 99, 255, 0.28);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1rem;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.hint-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #60a5fa;
+  margin-bottom: 0.45rem;
+}
+
+.hint-desc {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-silver);
+  margin-bottom: 0.5rem;
+}
+
+.hint-desc strong {
+  color: #ffffff;
+}
+
+.hint-desc code,
+.hint-examples code {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: #93c5fd;
+}
+
+.hint-examples {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.example-label {
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.hint-note {
+  font-size: 0.74rem;
+  color: #fbbf24;
+  line-height: 1.4;
+  background: rgba(251, 191, 36, 0.08);
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  border-left: 3px solid #fbbf24;
+}
+
+.filter-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.filter-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.filter-input-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-silver);
+}
+
+.filter-items-count {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: #60a5fa;
+  background: rgba(10, 99, 255, 0.12);
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(10, 99, 255, 0.25);
+}
+
+.filter-textarea {
+  width: 100%;
+  background: var(--bg-glass-input);
+  border: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-specular-soft);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-main);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  resize: vertical;
+  min-height: 130px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.filter-textarea::placeholder {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  opacity: 0.65;
+}
+
+.filter-textarea:focus {
+  border-color: var(--waze-blue);
+  box-shadow: 0 0 0 3px rgba(10, 99, 255, 0.22), inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.filter-status-info {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  padding: 0.35rem 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  border: 1px dashed var(--border-subtle);
+}
+
+.filter-status-info .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--text-dim);
+  transition: background-color 0.2s ease;
+}
+
+.filter-status-info.has-active .status-dot {
+  background-color: #30D168;
+  box-shadow: 0 0 6px #30D168;
+}
+
+.filter-status-info.has-active {
+  color: #86efac;
+  border-color: rgba(48, 209, 104, 0.3);
+  background: rgba(48, 209, 104, 0.05);
+}
+
+.filter-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filter-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.btn-clear-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--radius-md);
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: rgba(255, 73, 58, 0.08);
+  border: 1px solid rgba(255, 73, 58, 0.25);
+  color: #ff7b70;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-clear-filter:hover {
+  background: rgba(255, 73, 58, 0.18);
+  border-color: rgba(255, 73, 58, 0.45);
+  color: #ff9d94;
+}
+
+.btn-filter-cancel {
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-md);
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: var(--bg-glass-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-silver);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-filter-cancel:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-specular);
+}
+
